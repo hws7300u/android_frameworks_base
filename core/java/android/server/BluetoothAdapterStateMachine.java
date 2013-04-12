@@ -230,7 +230,6 @@ final class BluetoothAdapterStateMachine extends StateMachine {
         @Override
         public boolean processMessage(Message message) {
 
-
             boolean retValue = HANDLED;
             switch(message.what) {
                 case USER_TURN_ON:
@@ -353,12 +352,10 @@ final class BluetoothAdapterStateMachine extends StateMachine {
 
         @Override
         public void enter() {
-
         }
 
         @Override
         public boolean processMessage(Message message) {
-
 
             boolean retValue = HANDLED;
             switch(message.what) {
@@ -579,6 +576,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
         public boolean processMessage(Message message) {
 
 
+
             boolean retValue = HANDLED;
             switch(message.what) {
                 case USER_TURN_OFF:
@@ -645,7 +643,6 @@ final class BluetoothAdapterStateMachine extends StateMachine {
         @Override
         public void enter() {
             int what = getCurrentMessage().what;
-
 
             if (what == PER_PROCESS_TURN_ON) {
                 isTurningOn = true;
@@ -817,6 +814,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
 
     private void broadcastState(int newState) {
 
+
         if (mPublicState == newState) {
             return;
         }
@@ -840,5 +838,4 @@ final class BluetoothAdapterStateMachine extends StateMachine {
         deferMessage(obtainMessage(TURN_COLD));
         deferMessage(obtainMessage(what, obj));
     }
-
 }

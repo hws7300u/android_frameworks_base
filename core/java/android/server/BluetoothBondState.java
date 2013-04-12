@@ -134,6 +134,7 @@ class BluetoothBondState {
     /** reason is ignored unless state == BOND_NOT_BONDED */
     public synchronized void setBondState(String address, int state, int reason) {
 
+
         int oldState = getBondState(address);
         if (oldState == state) {
             return;
