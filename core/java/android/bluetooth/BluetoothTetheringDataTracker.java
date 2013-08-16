@@ -16,9 +16,6 @@
 
 package android.bluetooth;
 
-import android.os.IBinder;
-import android.os.ServiceManager;
-import android.os.INetworkManagementService;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.DhcpResults;
@@ -34,11 +31,6 @@ import android.os.Message;
 import android.os.Messenger;
 import android.text.TextUtils;
 import android.util.Log;
-import java.net.InterfaceAddress;
-import android.net.LinkAddress;
-import android.net.RouteInfo;
-import java.net.Inet4Address;
-import android.os.SystemProperties;
 
 import com.android.internal.util.AsyncChannel;
 
@@ -57,8 +49,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BluetoothTetheringDataTracker implements NetworkStateTracker {
     private static final String NETWORKTYPE = "BLUETOOTH_TETHER";
     private static final String TAG = "BluetoothTethering";
-    private static final boolean DBG = true;
-    private static final boolean VDBG = true;
 
     private AtomicBoolean mTeardownRequested = new AtomicBoolean(false);
     private AtomicBoolean mPrivateDnsRouteSet = new AtomicBoolean(false);
@@ -75,6 +65,9 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
 
     private BluetoothPan mBluetoothPan;
     private static String mRevTetheredIface;
+    private BluetoothDevice mDevice;
+    private static String mIface;
+
     /* For sending events to connectivity service handler */
     private Handler mCsHandler;
     protected Context mContext;
@@ -112,10 +105,8 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
      * Begin monitoring connectivity
      */
     public void startMonitoring(Context context, Handler target) {
-        if (DBG) Log.d(TAG, "startMonitoring: target: " + target);
         mContext = context;
         mCsHandler = target;
-        if (VDBG) Log.d(TAG, "startMonitoring: mCsHandler: " + mCsHandler);
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter != null) {
             adapter.getProfileProxy(mContext, mProfileServiceListener, BluetoothProfile.PAN);
@@ -147,11 +138,6 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
         return true;
     }
 
-    @Override
-    public void captivePortalCheckComplete() {
-        // not implemented
-    }
-
     /**
      * Re-enable connectivity to a network after a {@link #teardown()}.
      */
@@ -167,6 +153,10 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
      */
     public boolean setRadio(boolean turnOn) {
         return true;
+    }
+
+    /* TODO */
+    public void captivePortalCheckComplete() {
     }
 
     /**
@@ -303,131 +293,49 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
         return count;
     }
 
-    void startReverseTether(final LinkProperties linkProperties) {
-        if (linkProperties == null || TextUtils.isEmpty(linkProperties.getInterfaceName())) {
-            Log.e(TAG, "attempted to reverse tether with empty interface");
-            return;
-        }
-        synchronized (mLinkPropertiesLock) {
-            if (mLinkProperties.getInterfaceName() != null) {
-                Log.e(TAG, "attempted to reverse tether while already in process");
-                return;
-            }
-            mLinkProperties = linkProperties;
-        }
+    public synchronized void startReverseTether(String iface, BluetoothDevice device) {
+        mIface = iface;
+        mDevice = device;
         Thread dhcpThread = new Thread(new Runnable() {
             public void run() {
+                //TODO(): Add callbacks for failure and success case.
                 //Currently this thread runs independently.
-                DhcpResults dhcpResults = new DhcpResults();
-                boolean success = NetworkUtils.runDhcp(linkProperties.getInterfaceName(),
-                        dhcpResults);
-                synchronized (mLinkPropertiesLock) {
-                    if (linkProperties.getInterfaceName() != mLinkProperties.getInterfaceName()) {
-                        Log.e(TAG, "obsolete DHCP run aborted");
-                        return;
-                    }
-                    if (!success) {
-                        Log.e(TAG, "DHCP request error:" + NetworkUtils.getDhcpError());
-                        return;
-                    }
-                    mLinkProperties = dhcpResults.linkProperties;
-                    synchronized (mNetworkInfoLock) {
-                        mNetworkInfo.setIsAvailable(true);
-                        mNetworkInfo.setDetailedState(DetailedState.CONNECTED, null, null);
-                        if (mCsHandler != null) {
-                            Message msg = mCsHandler.obtainMessage(EVENT_STATE_CHANGED,
-                                    new NetworkInfo(mNetworkInfo));
-                            msg.sendToTarget();
-                       }
-                    }
+                DhcpInfoInternal dhcpInfoInternal = new DhcpInfoInternal();
+                if (!NetworkUtils.runDhcp(mIface, dhcpInfoInternal)) {
+                    Log.e(TAG, "DHCP request error:" + NetworkUtils.getDhcpError());
                     return;
                 }
+                mLinkProperties = dhcpInfoInternal.makeLinkProperties();
+                mLinkProperties.setInterfaceName(mIface);
+
+                mNetworkInfo.setIsAvailable(true);
+                mNetworkInfo.setDetailedState(DetailedState.CONNECTED, null, null);
+
+                Message msg = mCsHandler.obtainMessage(EVENT_CONFIGURATION_CHANGED, mNetworkInfo);
+                msg.sendToTarget();
+
+                msg = mCsHandler.obtainMessage(EVENT_STATE_CHANGED, mNetworkInfo);
+                msg.sendToTarget();
             }
         });
         dhcpThread.start();
     }
 
-    void stopReverseTether() {
-        synchronized (mLinkPropertiesLock) {
-            if (TextUtils.isEmpty(mLinkProperties.getInterfaceName())) {
-                Log.e(TAG, "attempted to stop reverse tether with nothing tethered");
-                return;
-            }
-            NetworkUtils.stopDhcp(mLinkProperties.getInterfaceName());
-            mLinkProperties.clear();
-            synchronized (mNetworkInfoLock) {
-                mNetworkInfo.setIsAvailable(false);
-                mNetworkInfo.setDetailedState(DetailedState.DISCONNECTED, null, null);
+    public synchronized void stopReverseTether(String iface) {
+        NetworkUtils.stopDhcp(iface);
 
-                if (mCsHandler != null) {
-                    mCsHandler.obtainMessage(EVENT_STATE_CHANGED, new NetworkInfo(mNetworkInfo)).
-                            sendToTarget();
-                }
-            }
-        }
+        mLinkProperties.clear();
+        mNetworkInfo.setIsAvailable(false);
+        mNetworkInfo.setDetailedState(DetailedState.DISCONNECTED, null, null);
+
+        Message msg = mCsHandler.obtainMessage(EVENT_CONFIGURATION_CHANGED, mNetworkInfo);
+        msg.sendToTarget();
+
+        msg = mCsHandler.obtainMessage(EVENT_STATE_CHANGED, mNetworkInfo);
+        msg.sendToTarget();
     }
 
     public void setDependencyMet(boolean met) {
         // not supported on this network
-    }
-
-    @Override
-    public void addStackedLink(LinkProperties link) {
-        mLinkProperties.addStackedLink(link);
-    }
-
-    @Override
-    public void removeStackedLink(LinkProperties link) {
-        mLinkProperties.removeStackedLink(link);
-    }
-
-    static class BtdtHandler extends Handler {
-        private AsyncChannel mStackChannel;
-        private final BluetoothTetheringDataTracker mBtdt;
-
-        BtdtHandler(Looper looper, BluetoothTetheringDataTracker parent) {
-            super(looper);
-            mBtdt = parent;
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case AsyncChannel.CMD_CHANNEL_HALF_CONNECTED:
-                    if (VDBG) Log.d(TAG, "got CMD_CHANNEL_HALF_CONNECTED");
-                    if (msg.arg1 == AsyncChannel.STATUS_SUCCESSFUL) {
-                        AsyncChannel ac = (AsyncChannel)msg.obj;
-                        if (mBtdt.mAsyncChannel.compareAndSet(null, ac) == false) {
-                            Log.e(TAG, "Trying to set mAsyncChannel twice!");
-                        } else {
-                            ac.sendMessage(
-                                    AsyncChannel.CMD_CHANNEL_FULL_CONNECTION);
-                        }
-                    }
-                    break;
-                case AsyncChannel.CMD_CHANNEL_DISCONNECTED:
-                    if (VDBG) Log.d(TAG, "got CMD_CHANNEL_DISCONNECTED");
-                    mBtdt.stopReverseTether();
-                    mBtdt.mAsyncChannel.set(null);
-                    break;
-                case NetworkStateTracker.EVENT_NETWORK_CONNECTED:
-                    LinkProperties linkProperties = (LinkProperties)(msg.obj);
-                    if (VDBG) Log.d(TAG, "got EVENT_NETWORK_CONNECTED, " + linkProperties);
-                    mBtdt.startReverseTether(linkProperties);
-                    break;
-                case NetworkStateTracker.EVENT_NETWORK_DISCONNECTED:
-                    linkProperties = (LinkProperties)(msg.obj);
-                    if (VDBG) Log.d(TAG, "got EVENT_NETWORK_DISCONNECTED, " + linkProperties);
-                    mBtdt.stopReverseTether();
-                    break;
-            }
-        }
-    }
-
-    @Override
-    public void supplyMessenger(Messenger messenger) {
-        if (messenger != null) {
-            new AsyncChannel().connect(mContext, mBtdtHandler, messenger);
-        }
     }
 }
