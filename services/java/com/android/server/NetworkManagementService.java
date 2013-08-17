@@ -121,6 +121,8 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         public static final int SoftapStatusResult        = 214;
         public static final int InterfaceRxCounterResult  = 216;
         public static final int InterfaceTxCounterResult  = 217;
+        public static final int InterfaceRxThrottleResult = 218;
+        public static final int InterfaceTxThrottleResult = 219;
         public static final int QuotaCounterResult        = 220;
         public static final int TetheringStatsResult      = 221;
         public static final int DnsProxyQueryResult       = 222;
@@ -983,22 +985,19 @@ public class NetworkManagementService extends INetworkManagementService.Stub
 
     @Override
     public void startAccessPoint(
-            WifiConfiguration wifiConfig, String wlanIface) {
+            WifiConfiguration wifiConfig, String wlanIface, String softapIface) {
         mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
         try {
             if (mContext.getResources().getBoolean(
                         com.android.internal.R.bool.config_wifiApFirmwareReload)) {
                 wifiFirmwareReload(wlanIface, "AP");
             }
-            if (mContext.getResources().getBoolean(
-                        com.android.internal.R.bool.config_wifiApStartInterface)) {
-                mConnector.execute("softap", "start", wlanIface);
-            }
+            mConnector.execute("softap", "start", wlanIface);
             if (wifiConfig == null) {
-                mConnector.execute("softap", "set", wlanIface);
+                mConnector.execute("softap", "set", wlanIface, softapIface);
             } else {
-                mConnector.execute("softap", "set", wlanIface, wifiConfig.SSID,
-                        getSecurityType(wifiConfig), new SensitiveArg(wifiConfig.preSharedKey));
+                mConnector.execute("softap", "set", wlanIface, softapIface, wifiConfig.SSID,
+                        getSecurityType(wifiConfig), wifiConfig.preSharedKey);
             }
             mConnector.execute("softap", "startap");
         } catch (NativeDaemonConnectorException e) {
@@ -1033,6 +1032,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
         try {
             mConnector.execute("softap", "stopap");
+            mConnector.execute("softap", "stop", wlanIface);
             wifiFirmwareReload(wlanIface, "STA");
         } catch (NativeDaemonConnectorException e) {
             throw e.rethrowAsParcelableException();
@@ -1040,14 +1040,14 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     }
 
     @Override
-    public void setAccessPoint(WifiConfiguration wifiConfig, String wlanIface) {
+    public void setAccessPoint(WifiConfiguration wifiConfig, String wlanIface, String softapIface) {
         mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
         try {
             if (wifiConfig == null) {
-                mConnector.execute("softap", "set", wlanIface);
+                mConnector.execute("softap", "set", wlanIface, softapIface);
             } else {
-                mConnector.execute("softap", "set", wlanIface, wifiConfig.SSID,
-                        getSecurityType(wifiConfig), new SensitiveArg(wifiConfig.preSharedKey));
+                mConnector.execute("softap", "set", wlanIface, softapIface, wifiConfig.SSID,
+                        getSecurityType(wifiConfig), wifiConfig.preSharedKey);
             }
         } catch (NativeDaemonConnectorException e) {
             throw e.rethrowAsParcelableException();
@@ -1340,6 +1340,49 @@ public class NetworkManagementService extends INetworkManagementService.Stub
             throw new IllegalStateException(
                     "problem parsing tethering stats for " + ifaceIn + " " + ifaceOut + ": " + e);
         }
+    }
+
+    @Override
+    public void setInterfaceThrottle(String iface, int rxKbps, int txKbps) {
+        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
+        try {
+            mConnector.execute("interface", "setthrottle", iface, rxKbps, txKbps);
+        } catch (NativeDaemonConnectorException e) {
+            throw e.rethrowAsParcelableException();
+        }
+    }
+
+    private int getInterfaceThrottle(String iface, boolean rx) {
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("interface", "getthrottle", iface, rx ? "rx" : "tx");
+        } catch (NativeDaemonConnectorException e) {
+            throw e.rethrowAsParcelableException();
+        }
+
+        if (rx) {
+            event.checkCode(InterfaceRxThrottleResult);
+        } else {
+            event.checkCode(InterfaceTxThrottleResult);
+        }
+
+        try {
+            return Integer.parseInt(event.getMessage());
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("unexpected response:" + event);
+        }
+    }
+
+    @Override
+    public int getInterfaceRxThrottle(String iface) {
+        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
+        return getInterfaceThrottle(iface, true);
+    }
+
+    @Override
+    public int getInterfaceTxThrottle(String iface) {
+        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
+        return getInterfaceThrottle(iface, false);
     }
 
     @Override
