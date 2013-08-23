@@ -67,23 +67,15 @@ interface IBluetooth
     int getBondState(in String address);
     boolean setDeviceOutOfBandData(in String address, in byte[] hash, in byte[] randomizer);
 
-<<<<<<< HEAD
-    String getRemoteName(in BluetoothDevice device);
+     String getRemoteName(in BluetoothDevice device);
     int getRemoteType(in BluetoothDevice device);
     String getRemoteAlias(in BluetoothDevice device);
     boolean setRemoteAlias(in BluetoothDevice device, in String name);
     int getRemoteClass(in BluetoothDevice device);
     ParcelUuid[] getRemoteUuids(in BluetoothDevice device);
     boolean fetchRemoteUuids(in BluetoothDevice device);
-=======
-    String getRemoteName(in String address);
-    String getRemoteAlias(in String address);
-    boolean setRemoteAlias(in String address, in String name);
-    int getRemoteClass(in String address);
-    ParcelUuid[] getRemoteUuids(in String address);
-    boolean fetchRemoteUuids(in String address, in ParcelUuid uuid, in IBluetoothCallback callback);
     int getRemoteServiceChannel(in String address, in ParcelUuid uuid);
->>>>>>> 5f2f514... bluetooth: add bluez and dbus build targets
+
 
     boolean setPin(in String address, in byte[] pin);
     boolean setPasskey(in String address, int passkey);
