@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2012, The Linux Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +91,7 @@ public interface BluetoothProfile {
     /**
      * GATT
      */
-    static public final int GATT = 7;
+    static public final int GATT = 1001;
 
     /**
      * GATT_SERVER
@@ -101,7 +102,7 @@ public interface BluetoothProfile {
      * SAP
      * @hide
      */
-    public static final int SAP = 20;
+    public static final int SAP = 7;
 
     /**
      * Default priority for devices that we try to auto-connect to and

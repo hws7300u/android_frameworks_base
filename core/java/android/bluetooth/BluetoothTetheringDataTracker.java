@@ -16,9 +16,6 @@
 
 package android.bluetooth;
 
-import android.os.IBinder;
-import android.os.ServiceManager;
-import android.os.INetworkManagementService;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.DhcpResults;
@@ -34,11 +31,6 @@ import android.os.Message;
 import android.os.Messenger;
 import android.text.TextUtils;
 import android.util.Log;
-import java.net.InterfaceAddress;
-import android.net.LinkAddress;
-import android.net.RouteInfo;
-import java.net.Inet4Address;
-import android.os.SystemProperties;
 
 import com.android.internal.util.AsyncChannel;
 
@@ -74,7 +66,12 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
     private NetworkInfo mNetworkInfo;
 
     private BluetoothPan mBluetoothPan;
+
     private static String mRevTetheredIface;
+
+    private BluetoothDevice mDevice;
+    private static String mIface;
+
     /* For sending events to connectivity service handler */
     private Handler mCsHandler;
     protected Context mContext;
@@ -112,10 +109,8 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
      * Begin monitoring connectivity
      */
     public void startMonitoring(Context context, Handler target) {
-        if (DBG) Log.d(TAG, "startMonitoring: target: " + target);
         mContext = context;
         mCsHandler = target;
-        if (VDBG) Log.d(TAG, "startMonitoring: mCsHandler: " + mCsHandler);
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter != null) {
             adapter.getProfileProxy(mContext, mProfileServiceListener, BluetoothProfile.PAN);
@@ -147,11 +142,6 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
         return true;
     }
 
-    @Override
-    public void captivePortalCheckComplete() {
-        // not implemented
-    }
-
     /**
      * Re-enable connectivity to a network after a {@link #teardown()}.
      */
@@ -167,6 +157,10 @@ public class BluetoothTetheringDataTracker implements NetworkStateTracker {
      */
     public boolean setRadio(boolean turnOn) {
         return true;
+    }
+
+    /* TODO */
+    public void captivePortalCheckComplete() {
     }
 
     /**

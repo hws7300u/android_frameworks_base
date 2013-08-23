@@ -17,8 +17,6 @@
 package android.bluetooth;
 
 import android.os.Handler;
-import android.os.Message;
-import android.os.ParcelUuid;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -152,9 +150,7 @@ public final class BluetoothServerSocket implements Closeable {
         mHandler = handler;
         mMessage = message;
     }
-    /*package*/ void setServiceName(String ServiceName) {
-        mSocket.setServiceName(ServiceName);
-    }
+
     /**
      * Returns the channel on which this socket is bound.
      * @hide
