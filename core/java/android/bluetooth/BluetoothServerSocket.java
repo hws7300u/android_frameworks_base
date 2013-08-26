@@ -86,23 +86,6 @@ public final class BluetoothServerSocket implements Closeable {
     }
 
     /**
-     * Construct a socket for incoming connections.
-     * @param type    type of socket
-     * @param auth    require the remote device to be authenticated
-     * @param encrypt require the connection to be encrypted
-     * @param port    remote port
-     * @param uuid    uuid
-     * @throws IOException On error, for example Bluetooth not available, or
-     *                     insufficient privileges
-     */
-    /*package*/ BluetoothServerSocket(int type, boolean auth, boolean encrypt, int port, ParcelUuid uuid)
-            throws IOException {
-        mSocket = new BluetoothSocket(type, -1, auth, encrypt, null, port, uuid);
-        mChannel = mSocket.getPort();
-    }
-
-
-    /**
      * Block until a connection is established.
      * <p>Returns a connected {@link BluetoothSocket} on successful connection.
      * <p>Once this call returns, it can be called again to accept subsequent

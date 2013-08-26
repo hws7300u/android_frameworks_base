@@ -66,6 +66,7 @@ interface IBluetooth
     String[] listBonds();
     int getBondState(in String address);
     boolean setDeviceOutOfBandData(in String address, in byte[] hash, in byte[] randomizer);
+
     String getRemoteName(in String address);
     String getRemoteAlias(in String address);
     boolean setRemoteAlias(in String address, in String name);

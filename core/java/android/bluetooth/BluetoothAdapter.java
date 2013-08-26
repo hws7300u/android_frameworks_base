@@ -20,7 +20,9 @@ import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
 import android.content.Context;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
@@ -29,14 +31,10 @@ import android.util.Log;
 import android.util.Pair;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -47,22 +45,17 @@ import java.util.UUID;
  * device discovery, query a list of bonded (paired) devices,
  * instantiate a {@link BluetoothDevice} using a known MAC address, and create
  * a {@link BluetoothServerSocket} to listen for connection requests from other
- * devices, and start a scan for Bluetooth LE devices.
+ * devices.
  *
  * <p>To get a {@link BluetoothAdapter} representing the local Bluetooth
- * adapter, when running on JELLY_BEAN_MR1 and below, call the 
- * static {@link #getDefaultAdapter} method; when running on JELLY_BEAN_MR2 and
- * higher, retrieve it through
- * {@link android.content.Context#getSystemService} with
- * {@link android.content.Context#BLUETOOTH_SERVICE}.
+ * adapter, call the static {@link #getDefaultAdapter} method.
  * Fundamentally, this is your starting point for all
  * Bluetooth actions. Once you have the local adapter, you can get a set of
  * {@link BluetoothDevice} objects representing all paired devices with
  * {@link #getBondedDevices()}; start device discovery with
  * {@link #startDiscovery()}; or create a {@link BluetoothServerSocket} to
  * listen for incoming connection requests with
- * {@link #listenUsingRfcommWithServiceRecord(String,UUID)}; or start a scan for
- * Bluetooth LE devices with {@link #startLeScan(LeScanCallback callback)}.
+ * {@link #listenUsingRfcommWithServiceRecord(String,UUID)}.
  *
  * <p class="note"><strong>Note:</strong>
  * Most methods require the {@link android.Manifest.permission#BLUETOOTH}
@@ -352,6 +345,12 @@ public final class BluetoothAdapter {
     /** @hide */
     public static final String BLUETOOTH_SERVICE = "bluetooth";
 
+    /**
+     * Dummy BLUETOOTH_MANAGER_SERVICE for JB MR1
+     * @hide
+     */
+    public static final String BLUETOOTH_MANAGER_SERVICE = "bluetooth_manager";
+
     private static final int ADDRESS_LENGTH = 17;
 
     /**
@@ -362,7 +361,7 @@ public final class BluetoothAdapter {
 
     private final IBluetooth mService;
 
-    private final Map<LeScanCallback, GattCallbackWrapper> mLeScanClients;
+    private Handler mServiceRecordHandler;
 
     /**
      * Get a handle to the default local Bluetooth adapter.
@@ -457,7 +456,6 @@ public final class BluetoothAdapter {
      * @return current state of Bluetooth adapter
      */
     public int getState() {
-        if (mService == null) return STATE_OFF;
         try {
             return mService.getBluetoothState();
         } catch (RemoteException e) {Log.e(TAG, "", e);}
@@ -571,36 +569,6 @@ public final class BluetoothAdapter {
             return mService.getUuids();
         } catch (RemoteException e) {Log.e(TAG, "", e);}
         return null;
-    }
-
-    /** @hide */
-    public static String getStateName(int state) {
-        switch (state) {
-            case STATE_OFF:
-                return "STATE_OFF";
-            case STATE_TURNING_ON:
-                return "STATE_TURNING_ON";
-            case STATE_ON:
-                return "STATE_ON";
-            case STATE_TURNING_OFF:
-                return "STATE_TURNING_OFF";
-            default:
-                return "UNKNOWN";
-        }
-    }
-
-    /** @hide */
-    public static String getScanMode(int mode) {
-        switch (mode) {
-            case SCAN_MODE_NONE:
-                return "SCAN_MODE_NONE";
-            case SCAN_MODE_CONNECTABLE:
-                return "SCAN_MODE_CONNECTABLE";
-            case SCAN_MODE_CONNECTABLE_DISCOVERABLE:
-                return "SCAN_MODE_CONNECTABLE_DISCOVERABLE";
-            default:
-                return "UNKNOWN";
-        }
     }
 
     /**
@@ -873,15 +841,10 @@ public final class BluetoothAdapter {
      */
     private static class RfcommChannelPicker {
         private static final int[] RESERVED_RFCOMM_CHANNELS =  new int[] {
-            1,   // DUN
             10,  // HFAG
             11,  // HSAG
             12,  // OPUSH
-            15,  // SAP
-            16,  // MAS0
-            17,  // MAS1
             19,  // PBAP
-            20,  // FTP
         };
         private static LinkedList<Integer> sChannels;  // master list of non-reserved channels
         private static Random sRandom;
@@ -967,15 +930,7 @@ public final class BluetoothAdapter {
      */
     public BluetoothServerSocket listenUsingRfcommWithServiceRecord(String name, UUID uuid)
             throws IOException {
-        return createNewRfcommSocketAndRecord(name, -1, uuid, true, true);
-    }
-
-    /**
-     * @hide
-     */
-    public BluetoothServerSocket listenUsingRfcommWithServiceRecordOn(String name, int port, UUID uuid)
-            throws IOException {
-        return createNewRfcommSocketAndRecord(name, port, uuid, true, true);
+        return createNewRfcommSocketAndRecord(name, uuid, true, true);
     }
 
     /**
@@ -1006,7 +961,7 @@ public final class BluetoothAdapter {
      */
     public BluetoothServerSocket listenUsingInsecureRfcommWithServiceRecord(String name, UUID uuid)
             throws IOException {
-        return createNewRfcommSocketAndRecord(name, -1, uuid, false, false);
+        return createNewRfcommSocketAndRecord(name, uuid, false, false);
     }
 
      /**
@@ -1094,10 +1049,7 @@ public final class BluetoothAdapter {
         }
 
         if (mServiceRecordHandler == null) {
-            Looper looper = Looper.getMainLooper();
-            if (looper != null) {
-                if (DBG) Log.d(TAG, "Handler to Remove SDP record:MainLooper");
-                mServiceRecordHandler = new Handler(looper) {
+            mServiceRecordHandler = new Handler(Looper.getMainLooper()) {
                     public void handleMessage(Message msg) {
                         /* handle socket closing */
                         int handle = msg.what;
@@ -1108,24 +1060,11 @@ public final class BluetoothAdapter {
                         } catch (RemoteException e) {Log.e(TAG, "", e);}
                     }
                 };
-            }else {
-                if (DBG) Log.d(TAG, "Handler to Remove SDP record:myLooper");
-                mServiceRecordHandler = new Handler() {
-                    public void handleMessage(Message msg) {
-                        /* handle socket closing */
-                        int handle = msg.what;
-                        try {
-                            if (DBG) Log.d(TAG, "Removing service record " +
-                                           Integer.toHexString(handle));
-                            mService.removeServiceRecord(handle);
-                        } catch (RemoteException e) {Log.e(TAG, "", e);}
-                    }
-                };
-            }
         }
         socket.setCloseHandler(mServiceRecordHandler, handle);
         return socket;
     }
+
 
     /**
      * Construct an unencrypted, unauthenticated, RFCOMM server socket.
@@ -1225,9 +1164,8 @@ public final class BluetoothAdapter {
     /**
      * Get the profile proxy object associated with the profile.
      *
-     * <p>Profile can be one of {@link BluetoothProfile#HEALTH}, {@link BluetoothProfile#HEADSET},
-     * {@link BluetoothProfile#A2DP}, {@link BluetoothProfile#GATT}, or
-     * {@link BluetoothProfile#GATT_SERVER}. Clients must implement
+     * <p>Profile can be one of {@link BluetoothProfile#HEALTH}, {@link BluetoothProfile#HEADSET} or
+     * {@link BluetoothProfile#A2DP}. Clients must implements
      * {@link BluetoothProfile.ServiceListener} to get notified of
      * the connection status and to get the proxy object.
      *
@@ -1252,9 +1190,6 @@ public final class BluetoothAdapter {
             return true;
         } else if (profile == BluetoothProfile.PAN) {
             BluetoothPan pan = new BluetoothPan(context, listener);
-            return true;
-        } else if (profile == BluetoothProfile.SAP) {
-            BluetoothSap sap = new BluetoothSap(context, listener);
             return true;
         } else if (profile == BluetoothProfile.HEALTH) {
             BluetoothHealth health = new BluetoothHealth(context, listener);
@@ -1295,21 +1230,9 @@ public final class BluetoothAdapter {
                 BluetoothPan pan = (BluetoothPan)proxy;
                 pan.close();
                 break;
-            case BluetoothProfile.SAP:
-                BluetoothSap sap = (BluetoothSap)proxy;
-                sap.close();
-                break;
             case BluetoothProfile.HEALTH:
                 BluetoothHealth health = (BluetoothHealth)proxy;
                 health.close();
-                break;
-           case BluetoothProfile.GATT:
-                BluetoothGatt gatt = (BluetoothGatt)proxy;
-                gatt.close();
-                break;
-            case BluetoothProfile.GATT_SERVER:
-                BluetoothGattServer gattServer = (BluetoothGattServer)proxy;
-                gattServer.close();
                 break;
         }
     }

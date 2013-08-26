@@ -225,11 +225,11 @@ final class BluetoothAdapterStateMachine extends StateMachine {
     private class PowerOff extends State {
         @Override
         public void enter() {
-            if (DBG) log("Enter " + getName() + " " + getMsg(getCurrentMessage().what));
+
         }
         @Override
         public boolean processMessage(Message message) {
-            log("State: " + getName() + " process message: " + getMsg(message.what));
+
 
             boolean retValue = HANDLED;
             switch(message.what) {
@@ -309,7 +309,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
             int retryCount = 3;
             boolean eventLoopStarted = false;
             while ((retryCount-- > 0) && !eventLoopStarted) {
-                log("Trying to start EventLoop, attempt " + (3 - retryCount));
+
                 mEventLoop.start();
                 // it may take a moment for the other thread to do its
                 // thing.  Check periodically for a while.
@@ -322,7 +322,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                     try {
                         Thread.sleep(200);
                     } catch (InterruptedException e) {
-                        log("prepareBluetooth sleep interrupted: " + pollCount);
+
                         break;
                     }
                 }
@@ -353,12 +353,12 @@ final class BluetoothAdapterStateMachine extends StateMachine {
 
         @Override
         public void enter() {
-            if (DBG) log("Enter " + getName() + " " + getMsg(getCurrentMessage().what));
+
         }
 
         @Override
         public boolean processMessage(Message message) {
-            log("State: " + getName() + " process message: " + getMsg(message.what));
+
 
             boolean retValue = HANDLED;
             switch(message.what) {
@@ -404,12 +404,12 @@ final class BluetoothAdapterStateMachine extends StateMachine {
     private class HotOff extends State {
         @Override
         public void enter() {
-            if (DBG) log("Enter " + getName() + " " + getMsg(getCurrentMessage().what));
+
         }
 
         @Override
         public boolean processMessage(Message message) {
-            log("State: " + getName() + " process message: " + getMsg(message.what));
+
 
             boolean retValue = HANDLED;
             switch(message.what) {
@@ -480,11 +480,11 @@ final class BluetoothAdapterStateMachine extends StateMachine {
 
         @Override
         public void enter() {
-            if (DBG) log("Enter " + getName() + " " + getMsg(getCurrentMessage().what));
+
         }
         @Override
         public boolean processMessage(Message message) {
-            log("State: " + getName() + " process message: " + getMsg(message.what));
+
 
             boolean retValue = HANDLED;
             switch(message.what) {
@@ -573,11 +573,11 @@ final class BluetoothAdapterStateMachine extends StateMachine {
 
         @Override
         public void enter() {
-            if (DBG) log("Enter " + getName() + " " + getMsg(getCurrentMessage().what));
+
         }
         @Override
         public boolean processMessage(Message message) {
-            log("State: " + getName() + " process message: " + getMsg(message.what));
+
 
             boolean retValue = HANDLED;
             switch(message.what) {
@@ -645,7 +645,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
         @Override
         public void enter() {
             int what = getCurrentMessage().what;
-            if (DBG) log("Enter " + getName() + " " + getMsg(what));
+
 
             if (what == PER_PROCESS_TURN_ON) {
                 isTurningOn = true;
@@ -658,7 +658,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
 
         @Override
         public boolean processMessage(Message message) {
-            log("State: " + getName() + " process message: " + getMsg(message.what));
+
 
             boolean retValue = HANDLED;
             switch (message.what) {
@@ -816,7 +816,6 @@ final class BluetoothAdapterStateMachine extends StateMachine {
     }
 
     private void broadcastState(int newState) {
-        log("Bluetooth state " + BluetoothAdapter.getStateName(mPublicState) + " -> " + BluetoothAdapter.getStateName(newState));
 
         if (mPublicState == newState) {
             return;
@@ -842,7 +841,4 @@ final class BluetoothAdapterStateMachine extends StateMachine {
         deferMessage(obtainMessage(what, obj));
     }
 
-    private static void log(String msg) {
-        Log.d(TAG, msg);
-    }
 }

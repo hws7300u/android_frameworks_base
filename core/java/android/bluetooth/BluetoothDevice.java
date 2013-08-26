@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +18,6 @@ package android.bluetooth;
 
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
-import android.content.Context;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -31,7 +29,6 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.UUID;
-import java.util.Vector;
 
 /**
  * Represents a remote Bluetooth device. A {@link BluetoothDevice} lets you
@@ -108,33 +105,11 @@ public final class BluetoothDevice implements Parcelable {
      * <p>Always contains the extra fields {@link #EXTRA_DEVICE} and {@link
      * #EXTRA_CLASS}.
      * <p>Requires {@link android.Manifest.permission#BLUETOOTH} to receive.
-     * {@see BluetoothClass}
+     * @see {@link BluetoothClass}
      */
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String ACTION_CLASS_CHANGED =
             "android.bluetooth.device.action.CLASS_CHANGED";
-
-     /**
-     * Broadcast Action: RSSI update from the remote device
-     * <p>Always contains the extra fields {@link #EXTRA_DEVICE} and {@link
-     * #EXTRA_RSSI}.
-     * <p>Requires {@link android.Manifest.permission#BLUETOOTH} to receive.
-     * @hide
-     */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
-    public static final String ACTION_RSSI_UPDATE =
-            "android.bluetooth.device.action.RSSI_UPDATE";
-    /**
-     * Broadcast Action: Negotiated connection parameters update
-     * for the connection between the Gatt server and the remote GATT
-     * client device
-     * <p>Always contains the extra fields {@link #EXTRA_CONN_INTERVAL}
-     * <p>Requires {@link android.Manifest.permission#BLUETOOTH} to receive.
-     * @hide
-     */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
-    public static final String ACTION_LE_CONN_PARAMS =
-            "android.bluetooth.device.action.LE_CONN_PARAMS";
 
     /**
      * Broadcast Action: Indicates a low level (ACL) connection has been
@@ -228,17 +203,6 @@ public final class BluetoothDevice implements Parcelable {
      * Bluetooth hardware.
      */
     public static final String EXTRA_RSSI = "android.bluetooth.device.extra.RSSI";
-    /**
-     * Used as a String extra field in {ACTION_FOUND} intent.
-     * It contains the comma separated uuid string values of services.
-     * @hide
-     */
-    public static final String EXTRA_UUIDS = "android.bluetooth.device.extra.UUIDS";
-    /**
-     * Used as an UINT 16 extra field in {ACTION_LE_CONN_PARAMS} intent.
-     * It contains the negotiated connection interval value after establishing LE connection.
-     * @hide */
-    public static final String EXTRA_CONN_INTERVAL = "android.bluetooth.device.extra.CONN_INTERVAL";
 
     /**
      * Used as a Parcelable {@link BluetoothClass} extra field in {@link
@@ -265,10 +229,6 @@ public final class BluetoothDevice implements Parcelable {
       */
     public static final String EXTRA_PREVIOUS_BOND_STATE =
             "android.bluetooth.device.extra.PREVIOUS_BOND_STATE";
-
-    /** @hide */
-    public static final String EXTRA_SECURE_PAIRING = "android.bluetooth.device.extra.SECURE";
-
     /**
      * Indicates the remote device is not bonded (paired).
      * <p>There is no shared link key with the remote device, so communication
@@ -291,41 +251,13 @@ public final class BluetoothDevice implements Parcelable {
      */
     public static final int BOND_BONDED = 12;
 
-    /**
-     * This bonding state will be used, When auto pairing fails and
-     * retry the manual bonding process.
-     * @hide */
-    public static final int BOND_RETRY = 13;
-
     /** @hide */
     public static final String EXTRA_REASON = "android.bluetooth.device.extra.REASON";
     /** @hide */
     public static final String EXTRA_PAIRING_VARIANT =
             "android.bluetooth.device.extra.PAIRING_VARIANT";
     /** @hide */
-    public static final String EXTRA_SECURE_PAIRING = "codeaurora.bluetooth.device.extra.SECURE";
-    /** @hide */
     public static final String EXTRA_PAIRING_KEY = "android.bluetooth.device.extra.PAIRING_KEY";
-
-    /**
-     * Bluetooth device type, Unknown
-     */
-    public static final int DEVICE_TYPE_UNKNOWN = 0;
-
-    /**
-     * Bluetooth device type, Classic - BR/EDR devices
-     */
-    public static final int DEVICE_TYPE_CLASSIC = 1;
-
-    /**
-     * Bluetooth device type, Low Energy - LE-only
-     */
-    public static final int DEVICE_TYPE_LE = 2;
-
-    /**
-     * Bluetooth device type, Dual Mode - BR/EDR/LE
-     */
-    public static final int DEVICE_TYPE_DUAL = 3;
 
     /**
      * Broadcast Action: This intent is used to broadcast the {@link UUID}
@@ -390,16 +322,7 @@ public final class BluetoothDevice implements Parcelable {
     public static final int REQUEST_TYPE_PHONEBOOK_ACCESS = 2;
 
     /**@hide*/
-    public static final int REQUEST_TYPE_FILE_ACCESS = 3;
-
-    /**@hide*/
-    public static final int REQUEST_TYPE_MESSAGE_ACCESS = 4;
-
-    /**@hide*/
-    public static final int REQUEST_TYPE_SIM_ACCESS = 5;
-
-    /**@hide*/
-    public static final int REQUEST_TYPE_DUN_ACCESS = 6;
+    public static final int REQUEST_TYPE_MESSAGE_ACCESS = 3;
 
     /**
      * Used as an extra field in {@link #ACTION_CONNECTION_ACCESS_REQUEST} intents,
@@ -662,26 +585,6 @@ public final class BluetoothDevice implements Parcelable {
     }
 
     /**
-     * Get the Bluetooth device type of the remote device.
-     *
-     * <p>Requires {@link android.Manifest.permission#BLUETOOTH}
-     *
-     * @return the device type {@link #DEVICE_TYPE_CLASSIC}, {@link #DEVICE_TYPE_LE}
-     *                         {@link #DEVICE_TYPE_DUAL}.
-     *         {@link #DEVICE_TYPE_UNKNOWN} if it's not available
-     */
-    public int getType() {
-        if (sService == null) {
-            Log.e(TAG, "BT not enabled. Cannot get Remote Device type");
-            return DEVICE_TYPE_UNKNOWN;
-        }
-        try {
-            return sService.getRemoteType(this);
-        } catch (RemoteException e) {Log.e(TAG, "", e);}
-        return DEVICE_TYPE_UNKNOWN;
-    }
-
-    /**
      * Get the Bluetooth alias of the remote device.
      * <p>Alias is the locally modified name of a remote device.
      *
@@ -840,20 +743,6 @@ public final class BluetoothDevice implements Parcelable {
             return sService.getBondState(mAddress);
         } catch (RemoteException e) {Log.e(TAG, "", e);}
         return BOND_NONE;
-    }
-
-    /** @hide */
-    public static String getBondStateName(int state) {
-        switch (state) {
-            case BOND_NONE:
-                return "BOND_NONE";
-            case BOND_BONDING:
-                return "BOND_BONDING";
-            case BOND_BONDED:
-                return "BOND_BONDED";
-            default:
-                return "UNKNOWN";
-        }
     }
 
     /**
@@ -1155,34 +1044,4 @@ public final class BluetoothDevice implements Parcelable {
         return pinBytes;
     }
 
-    /**
-     * Connect to GATT Server hosted by this device. Caller acts as GATT client.
-     * The callback is used to deliver results to Caller, such as connection status as well
-     * as any further GATT client operations.
-     * The method returns a BluetoothGatt instance. You can use BluetoothGatt to conduct
-     * GATT client operations.
-     * @param callback GATT callback handler that will receive asynchronous callbacks.
-     * @param autoConnect Whether to directly connect to the remote device (false)
-     *                    or to automatically connect as soon as the remote
-     *                    device becomes available (true).
-     * @throws IllegalArgumentException if callback is null
-     */
-    public BluetoothGatt connectGatt(Context context, boolean autoConnect,
-                                     BluetoothGattCallback callback) {
-        // TODO(Bluetooth) check whether platform support BLE
-        //     Do the check here or in GattServer?
-        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-        IBluetoothManager managerService = adapter.getBluetoothManager();
-        try {
-            IBluetoothGatt iGatt = managerService.getBluetoothGatt();
-            if (iGatt == null) {
-                // BLE is not supported
-                return null;
-            }
-            BluetoothGatt gatt = new BluetoothGatt(context, iGatt, this);
-            gatt.connect(autoConnect, callback);
-            return gatt;
-        } catch (RemoteException e) {Log.e(TAG, "", e);}
-        return null;
-    }
 }
